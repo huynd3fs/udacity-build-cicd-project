@@ -92,7 +92,7 @@ jobs:
         run: netstat -pultn | grep 3000
 
       - name: Check the running application
-        run: curl -vvv http://localhost:3000
+        run: curl -vvv http://127.0.0.1:3000
 
       - name: Stop docker
         run: docker stop mp-frontend
