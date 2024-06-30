@@ -22,7 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: latest
-          node-version-file: starter/frontend/.nvmrc
           
       - name: install dependancies
         run: npm ci
@@ -40,7 +39,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: latest
-          node-version-file: starter/frontend/.nvmrc
 
       - name: install dependancies
         run: npm ci
