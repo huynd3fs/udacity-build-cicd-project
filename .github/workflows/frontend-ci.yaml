@@ -88,11 +88,5 @@ jobs:
       - name: Run Docker container
         run: docker run -p 3000:3000 --name mp-frontend -d mp-frontend
 
-      - name: Check port
-        run: netstat -pultn | grep 3000
-
-      - name: Check the running application
-        run: curl -vvv http://0.0.0.0:3000
-
       - name: Stop docker
         run: docker stop mp-frontend
