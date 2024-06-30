@@ -1,0 +1,125 @@
+name: Backend Continuous Deployment
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    branches:
+      - main
+    paths: starter/backend
+
+defaults:
+  run:
+    working-directory: starter/backend
+
+jobs:
+  running-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Setup pipenv
+        run: pip install pipenv
+          
+      - name: Install dependancies
+        run: pipenv install
+
+      - name: Run tests
+        run: pipenv run test
+
+  running-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Setup pipenv
+        run: pip install pipenv flake8
+
+      - name: Install dependancies
+        run: pipenv install
+
+      - name: Run tests
+        run: pipenv run lint
+
+  build:
+    needs: [running-test, running-linter]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+       
+      - name: Build Docker image
+        run: docker build --tag mp-backend:latest .
+
+      - name: Run Docker container
+        run: docker run -p 5000:5000 --name mp-backend -d mp-backend
+
+      - name: Check the running application
+        run: curl http://localhost:5000/movies
+
+      - name: Stop docker
+        run: docker stop mp-backend
+
+  deploy:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}          
+          aws-region: us-east-1
+          
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        env:
+          REGISTRY: ${{ vars.BACKEND_ECR }}
+          REPOSITORY: backend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy Kubernetes manifests
+        env:
+          REGISTRY: ${{ vars.BACKEND_ECR }}
+          REPOSITORY: backend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd k8s
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          ./kustomize edit set image backend=$REGISTRY/$REPOSITORY:$IMAGE_TAG
+          ./kustomize build
+      
+      - name: Install kubectl  
+        uses: nikosch86/github-action-eks-kubectl@main
+        with: 
+          command: "version"
+        env:
+          EKS_CLUSTER: "cluster"
+
+      - name: Deploy k8s
+        run: |
+          aws eks update-kubeconfig --region us-east-1 --name cluster
+          echo "Start Deploy"
+          cd k8s
+          ./kustomize build | kubectl apply -f -
+          echo "Deploy Done"
