@@ -122,4 +122,5 @@ jobs:
           echo "Start Deploy"
           cd k8s
           ./kustomize build | kubectl apply -f -
+          kubectl get svc
           echo "Deploy Done"
