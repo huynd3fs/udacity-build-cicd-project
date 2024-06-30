@@ -13,7 +13,54 @@ defaults:
     working-directory: starter/frontend
 
 jobs:
+  running-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Use cache
+        uses: actions/cache@v4.0.2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: install dependancies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  running-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Use cache
+        uses: actions/cache@v4.0.2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: install dependancies
+        run: npm ci
+
+      - name: run linter
+        run: npm run lint
+
   build:
+    needs: [running-test, running-linter]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
